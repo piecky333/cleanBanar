@@ -1,120 +1,104 @@
 @extends('layouts.mobile')
 
 @section('content')
-<div class="pt-8 px-6 pb-6 bg-white shadow-sm sticky top-0 z-30">
-    <div class="flex items-center justify-between">
-        <h1 class="text-xl font-bold text-gray-800">Device Settings</h1>
-        <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
-            <i class="fa-solid fa-ellipsis-vertical text-gray-500"></i>
+<!-- Header with gradient and shape -->
+<div class="pt-8 px-6 pb-24 bg-gradient-to-br from-[#10b981] to-emerald-700 text-white rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
+    <!-- Decorative circles -->
+    <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10"></div>
+    <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white opacity-10"></div>
+    
+    <div class="flex items-center gap-3 relative z-10 mb-6">
+        <a href="{{ route('dashboard') }}" class="h-10 w-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform text-white">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div>
+            <p class="text-emerald-100 text-[10px] font-semibold uppercase tracking-widest mb-0.5 opacity-90">OVERVIEW SISTEM</p>
+            <h1 class="text-xl font-bold flex items-center">
+                Manajemen Perangkat
+            </h1>
         </div>
+    </div>
+    
+    <div class="relative z-10 flex justify-between items-end">
+        <div>
+            <p class="text-xs text-emerald-100 mb-1 opacity-90">Total Perangkat IoT</p>
+            <div class="flex items-center gap-2">
+                <h2 class="text-4xl font-extrabold tracking-tight">{{ $devices->count() }} <span class="text-sm font-normal tracking-normal ml-1">unit</span></h2>
+            </div>
+        </div>
+        <a href="{{ route('admin.devices.create') }}" class="bg-white text-emerald-600 px-4 py-2.5 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-transform flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> Tambah
+        </a>
     </div>
 </div>
 
-<div class="p-5 space-y-6">
-    
-    <!-- Status Connection Card -->
-    <div class="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-20 h-20 bg-primary/5 rounded-full -mr-10 -mt-10"></div>
-        
-        <div class="flex items-center justify-between mb-4 relative z-10">
-            <div>
-                <h3 class="font-bold text-gray-800 text-sm">Status Device</h3>
-                <p class="text-xs text-gray-400">ID: SB-X09-44A</p>
-            </div>
-            <div class="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-primary rounded-full border border-green-100">
-                <span class="relative flex h-2 w-2">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                </span>
-                <span class="text-[10px] font-bold uppercase tracking-wide">Online</span>
-            </div>
+<div class="px-5 -mt-10 mx-auto relative z-20 space-y-4 pb-8">
+    @if(session('success'))
+        <div class="bg-green-50 text-green-700 p-4 rounded-2xl text-sm font-medium border border-green-100 mb-4">
+            <i class="fa-solid fa-circle-check mr-2"></i> {{ session('success') }}
         </div>
-        
-        <div class="grid grid-cols-2 gap-4 mt-6">
-            <div>
-                <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">Signal Strength</p>
-                <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-wifi text-primary text-sm"></i>
-                    <span class="font-bold text-gray-800 text-sm">Excellent</span>
-                </div>
-            </div>
-            <div>
-                <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">Last Sync</p>
-                <div class="flex items-center gap-2">
-                    <i class="fa-regular fa-clock text-gray-400 text-sm"></i>
-                    <span class="font-bold text-gray-800 text-sm">Just now</span>
-                </div>
-            </div>
-        </div>
-    </div>
+    @endif
 
-    <!-- Active Sensors -->
-    <div>
-        <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1 mb-3">Active Module Details</h3>
-        <div class="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden divide-y divide-gray-50">
-            <!-- Ultrasonic 1 -->
-            <div class="p-4 flex items-center justify-between">
+    @forelse($devices as $device)
+        <div class="bg-white rounded-3xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100">
+            <div class="flex justify-between items-start mb-3">
                 <div class="flex items-center gap-3">
-                    <div class="h-10 w-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-500">
-                        <i class="fa-solid fa-wave-square"></i>
+                    <div class="h-12 w-12 rounded-2xl bg-[#f0f9ff] text-indigo-500 flex items-center justify-center">
+                        <i class="fa-solid fa-trash-can text-lg"></i>
                     </div>
                     <div>
-                        <p class="font-bold text-gray-800 text-sm">Ultrasonic (Organik)</p>
-                        <p class="text-[10px] text-gray-400">Sensor Kapasitas</p>
+                        <h3 class="font-bold text-gray-800 text-base leading-tight">{{ $device->name }}</h3>
+                        <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-widest"><i class="fa-solid fa-location-dot mr-1"></i> {{ $device->main_area }}</p>
                     </div>
                 </div>
-                <div class="h-6 w-10 flex cursor-pointer rounded-full bg-primary items-center p-1 relative">
-                    <div class="h-4 w-4 rounded-full bg-white shadow-sm absolute right-1"></div>
+                <div>
+                    @if($device->status === 'active')
+                        <span class="px-2.5 py-1 bg-green-50 text-green-600 text-[9px] uppercase font-bold rounded-md">Aktif</span>
+                    @elseif($device->status === 'maintenance')
+                        <span class="px-2.5 py-1 bg-amber-50 text-amber-600 text-[9px] uppercase font-bold rounded-md">Maintenance</span>
+                    @else
+                        <span class="px-2.5 py-1 bg-gray-50 text-gray-500 text-[9px] uppercase font-bold rounded-md">Nonaktif</span>
+                    @endif
                 </div>
             </div>
             
-            <!-- Ultrasonic 2 -->
-            <div class="p-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="h-10 w-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-500">
-                        <i class="fa-solid fa-wave-square"></i>
+            <div class="bg-gray-50 rounded-xl p-3 mb-4 border border-gray-100">
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <span class="text-gray-400 block text-[9px] uppercase tracking-wider mb-0.5">Sub Area</span>
+                        <span class="font-medium text-gray-700">{{ $device->sub_area ?: '-' }}</span>
                     </div>
                     <div>
-                        <p class="font-bold text-gray-800 text-sm">Ultrasonic (Non-Org)</p>
-                        <p class="text-[10px] text-gray-400">Sensor Kapasitas</p>
+                        <span class="text-gray-400 block text-[9px] uppercase tracking-wider mb-0.5">Device UID</span>
+                        <span class="font-medium text-gray-700 font-mono">{{ $device->device_uid ?: '-' }}</span>
                     </div>
-                </div>
-                <div class="h-6 w-10 flex cursor-pointer rounded-full bg-primary items-center p-1 relative">
-                    <div class="h-4 w-4 rounded-full bg-white shadow-sm absolute right-1"></div>
                 </div>
             </div>
-
-            <!-- Servo Motor -->
-            <div class="p-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="h-10 w-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-500">
-                        <i class="fa-solid fa-gears"></i>
-                    </div>
-                    <div>
-                        <p class="font-bold text-gray-800 text-sm">Servo Pemilah</p>
-                        <p class="text-[10px] text-gray-400">Pemilah Aktif</p>
-                    </div>
-                </div>
-                <div class="h-6 w-10 flex cursor-pointer rounded-full bg-primary items-center p-1 relative">
-                    <div class="h-4 w-4 rounded-full bg-white shadow-sm absolute right-1"></div>
-                </div>
+            
+            <div class="flex gap-2">
+                <a href="{{ route('admin.devices.edit', $device->id) }}" class="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-2.5 rounded-xl font-semibold text-xs transition-colors flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-pen"></i> Edit
+                </a>
+                <form action="{{ route('admin.devices.destroy', $device->id) }}" method="POST" class="flex-1" onsubmit="return confirm('Yakin ingin menghapus perangkat ini?');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="w-full bg-red-50 hover:bg-red-100 text-red-500 font-semibold py-2.5 rounded-xl text-xs transition-colors border border-red-100 flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-trash"></i> Hapus
+                    </button>
+                </form>
             </div>
         </div>
-    </div>
-
-    <!-- Actions -->
-    <div>
-        <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1 mb-3">Device Commands</h3>
-        <button class="w-full bg-blue-50 hover:bg-blue-100 text-secondary font-bold py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 mb-3 transition-colors border border-blue-100">
-            <i class="fa-solid fa-rotate"></i> Restart Device Node
-        </button>
-        <button class="w-full bg-red-50 hover:bg-red-100 text-red-500 font-bold py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 transition-colors border border-red-100">
-            <i class="fa-solid fa-power-off"></i> Force Shutdown
-        </button>
-    </div>
-    
-    <div class="pb-6 text-center">
-        <p class="text-[10px] text-gray-400">Firmware v2.4.1 (Latest)</p>
-    </div>
+    @empty
+        <div class="bg-white rounded-3xl p-8 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 text-center">
+            <div class="h-16 w-16 mx-auto rounded-full bg-gray-50 flex flex-col items-center justify-center text-gray-300 mb-3">
+                <i class="fa-solid fa-server text-2xl"></i>
+            </div>
+            <h3 class="font-bold text-gray-700">Belum ada perangkat</h3>
+            <p class="text-xs text-gray-400 mt-2 mb-4 leading-relaxed">Kelola penyebaran tempat sampah pintar di berbagai area dengan menambah data perangkat baru.</p>
+            <a href="{{ route('admin.devices.create') }}" class="inline-flex bg-[#10b981] hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors items-center gap-2">
+                <i class="fa-solid fa-plus"></i> Tambah Perangkat
+            </a>
+        </div>
+    @endforelse
 </div>
 @endsection

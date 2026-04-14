@@ -1,0 +1,22 @@
+ D app/Exports/SensorLogsExport.php
+ D app/Http/Controllers/Admin/UserController.php
+ M app/Http/Controllers/DashboardController.php
+ M app/Http/Controllers/HistoryController.php
+ D app/Http/Middleware/RoleMiddleware.php
+ D app/Imports/SensorLogsImport.php
+ M app/Models/User.php
+ M bootstrap/app.php
+ M composer.json
+ M composer.lock
+ D resources/views/admin/users/index.blade.php
+ D resources/views/dashboard/admin.blade.php
+ D resources/views/dashboard/petugas.blade.php
+ M resources/views/history/index.blade.php
+ M routes/web.php
+?? database/migrations/2026_04_07_051955_remove_role_from_users_table.php
+?? git_diff.txt
+?? git_diff_names.txt
+?? git_show.txt
+?? git_status.txt
+?? migrate_status.txt
+?? resources/views/dashboard/index.blade.php

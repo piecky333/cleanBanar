@@ -57,10 +57,7 @@
             </button>
         </form>
 
-        <p class="mt-8 text-center text-sm text-gray-500 font-medium">
-            Belum punya akun? 
-            <a href="{{ route('register') }}" class="font-bold text-primary hover:text-emerald-700 transition-colors">Daftar di sini</a>
-        </p>
+
     </div>
 </div>
 @endsection

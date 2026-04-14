@@ -1,0 +1,9 @@
+
+  Migration name  Batch / Status  
+  0001_01_01_000000_create_users_table  [1] Ran  
+  0001_01_01_000001_create_cache_table  [1] Ran  
+  0001_01_01_000002_create_jobs_table  [1] Ran  
+  2026_03_26_024955_create_sensor_logs_table  [1] Ran  
+  2026_03_26_043641_add_role_to_users_table  [1] Ran  
+  2026_04_07_051955_remove_role_from_users_table  [2] Ran  
+
