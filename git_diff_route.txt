@@ -1,0 +1,23 @@
+diff --git a/routes/web.php b/routes/web.php
+index c10bf99..b645dff 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -20,16 +20,9 @@
+     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+     Route::get('/statistics', [StatisticsController::class, 'index'])->name('statistics');
+     Route::get('/history', [HistoryController::class, 'index'])->name('history');
+-    Route::get('/history/export', [HistoryController::class, 'export'])->name('history.export');
+-    Route::post('/history/import', [HistoryController::class, 'import'])->name('history.import');
+     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
+     Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'index'])->name('profile');
+ 
+-    // Admin Routes
+-    Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
+-        Route::resource('users', \App\Http\Controllers\Admin\UserController::class)->except(['create', 'show', 'edit', 'update']);
+-    });
+-
+-    // Petugas Routes
+-    Route::middleware('role:petugas')->post('/empty-trash/{type}', [DashboardController::class, 'emptyTrash'])->name('petugas.empty');
++    // Action Routes
++    Route::post('/empty-trash/{type}', [DashboardController::class, 'emptyTrash'])->name('trash.empty');
+ });

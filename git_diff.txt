@@ -1,0 +1,1213 @@
+diff --git a/app/Exports/SensorLogsExport.php b/app/Exports/SensorLogsExport.php
+deleted file mode 100644
+index 77fab6e..0000000
+--- a/app/Exports/SensorLogsExport.php
++++ /dev/null
+@@ -1,30 +0,0 @@
+-<?php
+-
+-namespace App\Exports;
+-
+-use App\Models\SensorLog;
+-use Maatwebsite\Excel\Concerns\FromCollection;
+-use Maatwebsite\Excel\Concerns\WithHeadings;
+-
+-class SensorLogsExport implements FromCollection, WithHeadings
+-{
+-    /**
+-    * @return \Illuminate\Support\Collection
+-    */
+-    public function collection()
+-    {
+-        return SensorLog::select('id', 'capacity_organik', 'capacity_non_organik', 'is_full_organik', 'is_full_non_organik', 'recorded_at')->get();
+-    }
+-
+-    public function headings(): array
+-    {
+-        return [
+-            'ID',
+-            'Kapasitas Organik',
+-            'Kapasitas Non-Organik',
+-            'Status Penuh Organik',
+-            'Status Penuh Non-Organik',
+-            'Waktu Tercatat'
+-        ];
+-    }
+-}
+diff --git a/app/Http/Controllers/Admin/UserController.php b/app/Http/Controllers/Admin/UserController.php
+deleted file mode 100644
+index d234156..0000000
+--- a/app/Http/Controllers/Admin/UserController.php
++++ /dev/null
+@@ -1,44 +0,0 @@
+-<?php
+-
+-namespace App\Http\Controllers\Admin;
+-
+-use App\Http\Controllers\Controller;
+-use App\Models\User;
+-use Illuminate\Http\Request;
+-use Illuminate\Support\Facades\Hash;
+-
+-class UserController extends Controller
+-{
+-    public function index()
+-    {
+-        $users = User::where('role', 'petugas')->get();
+-        return view('admin.users.index', compact('users'));
+-    }
+-
+-    // A simplified create/store for the demo
+-    public function store(Request $request)
+-    {
+-        $request->validate([
+-            'name' => 'required|string|max:255',
+-            'email' => 'required|string|email|max:255|unique:users',
+-            'password' => 'required|string|min:8',
+-        ]);
+-
+-        User::create([
+-            'name' => $request->name,
+-            'email' => $request->email,
+-            'password' => Hash::make($request->password),
+-            'role' => 'petugas', // Force role
+-        ]);
+-
+-        return redirect()->back()->with('success', 'Petugas berhasil ditambahkan.');
+-    }
+-
+-    public function destroy(User $user)
+-    {
+-        if ($user->role === 'petugas') {
+-            $user->delete();
+-        }
+-        return redirect()->back()->with('success', 'Petugas berhasil dihapus.');
+-    }
+-}
+diff --git a/app/Http/Controllers/DashboardController.php b/app/Http/Controllers/DashboardController.php
+index 3932b6c..d740fbe 100644
+--- a/app/Http/Controllers/DashboardController.php
++++ b/app/Http/Controllers/DashboardController.php
+@@ -8,11 +8,7 @@ class DashboardController extends Controller
+ {
+     public function index()
+     {
+-        if (auth()->user() && auth()->user()->role === 'admin') {
+-            $totalPetugas = \App\Models\User::where('role', 'petugas')->count();
+-            return view('dashboard.admin', compact('totalPetugas'));
+-        }
+-        return view('dashboard.petugas');
++        return view('dashboard.index');
+     }
+ 
+     public function emptyTrash(Request $request, $type)
+diff --git a/app/Http/Controllers/HistoryController.php b/app/Http/Controllers/HistoryController.php
+index e536384..202d8d8 100644
+--- a/app/Http/Controllers/HistoryController.php
++++ b/app/Http/Controllers/HistoryController.php
+@@ -3,9 +3,6 @@
+ namespace App\Http\Controllers;
+ 
+ use Illuminate\Http\Request;
+-use App\Exports\SensorLogsExport;
+-use App\Imports\SensorLogsImport;
+-use Maatwebsite\Excel\Facades\Excel;
+ 
+ class HistoryController extends Controller
+ {
+@@ -13,20 +10,4 @@ public function index()
+     {
+         return view('history.index');
+     }
+-
+-    public function export()
+-    {
+-        return Excel::download(new SensorLogsExport, 'sensor_logs.xlsx');
+-    }
+-
+-    public function import(Request $request)
+-    {
+-        $request->validate([
+-            'file' => 'required|mimes:xlsx,csv,xls',
+-        ]);
+-
+-        Excel::import(new SensorLogsImport, $request->file('file'));
+-
+-        return redirect()->back()->with('success', 'Data Riwayat TPA berhasil diimpor!');
+-    }
+ }
+diff --git a/app/Http/Middleware/RoleMiddleware.php b/app/Http/Middleware/RoleMiddleware.php
+deleted file mode 100644
+index 207769f..0000000
+--- a/app/Http/Middleware/RoleMiddleware.php
++++ /dev/null
+@@ -1,24 +0,0 @@
+-<?php
+-
+-namespace App\Http\Middleware;
+-
+-use Closure;
+-use Illuminate\Http\Request;
+-use Symfony\Component\HttpFoundation\Response;
+-
+-class RoleMiddleware
+-{
+-    /**
+-     * Handle an incoming request.
+-     *
+-     * @param  Closure(Request): (Response)  $next
+-     */
+-    public function handle(Request $request, Closure $next, string $role): Response
+-    {
+-        if (!$request->user() || $request->user()->role !== $role) {
+-            return redirect('/'); // Or abort(403)
+-        }
+-        
+-        return $next($request);
+-    }
+-}
+diff --git a/app/Imports/SensorLogsImport.php b/app/Imports/SensorLogsImport.php
+deleted file mode 100644
+index a112dba..0000000
+--- a/app/Imports/SensorLogsImport.php
++++ /dev/null
+@@ -1,33 +0,0 @@
+-<?php
+-
+-namespace App\Imports;
+-
+-use App\Models\SensorLog;
+-use Maatwebsite\Excel\Concerns\ToModel;
+-use Maatwebsite\Excel\Concerns\WithHeadingRow;
+-use Carbon\Carbon;
+-
+-class SensorLogsImport implements ToModel, WithHeadingRow
+-{
+-    /**
+-    * @param array $row
+-    *
+-    * @return \Illuminate\Database\Eloquent\Model|null
+-    */
+-    public function model(array $row)
+-    {
+-        try {
+-            $recordedAt = isset($row['waktu_tercatat']) ? Carbon::parse($row['waktu_tercatat']) : now();
+-        } catch (\Exception $e) {
+-            $recordedAt = now();
+-        }
+-
+-        return new SensorLog([
+-            'capacity_organik'      => $row['kapasitas_organik'] ?? 0,
+-            'capacity_non_organik'  => $row['kapasitas_non_organik'] ?? 0,
+-            'is_full_organik'       => $row['status_penuh_organik'] ?? false,
+-            'is_full_non_organik'   => $row['status_penuh_non_organik'] ?? false,
+-            'recorded_at'           => $recordedAt,
+-        ]);
+-    }
+-}
+diff --git a/app/Models/User.php b/app/Models/User.php
+index 4431e77..68f3a66 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -22,7 +22,6 @@ class User extends Authenticatable
+         'name',
+         'email',
+         'password',
+-        'role',
+     ];
+ 
+     /**
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index 20de776..c183276 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -11,9 +11,7 @@
+         health: '/up',
+     )
+     ->withMiddleware(function (Middleware $middleware): void {
+-        $middleware->alias([
+-            'role' => \App\Http\Middleware\RoleMiddleware::class,
+-        ]);
++        //
+     })
+     ->withExceptions(function (Exceptions $exceptions): void {
+         //
+diff --git a/composer.json b/composer.json
+index bb6a158..b17af3e 100644
+--- a/composer.json
++++ b/composer.json
+@@ -8,8 +8,7 @@
+     "require": {
+         "php": "^8.2",
+         "laravel/framework": "^12.0",
+-        "laravel/tinker": "^2.10.1",
+-        "maatwebsite/excel": "^3.1"
++        "laravel/tinker": "^2.10.1"
+     },
+     "require-dev": {
+         "fakerphp/faker": "^1.23",
+diff --git a/composer.lock b/composer.lock
+index a8561af..576a76d 100644
+--- a/composer.lock
++++ b/composer.lock
+@@ -4,7 +4,7 @@
+         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+         "This file is @generated automatically"
+     ],
+-    "content-hash": "49cc26d27dc661b70afb60b23b6cb4f3",
++    "content-hash": "53b5d56b3b7e3cbac1713e68c8850f6c",
+     "packages": [
+         {
+             "name": "brick/math",
+@@ -135,162 +135,6 @@
+             ],
+             "time": "2024-02-09T16:56:22+00:00"
+         },
+-        {
+-            "name": "composer/pcre",
+-            "version": "3.3.2",
+-            "source": {
+-                "type": "git",
+-                "url": "https://github.com/composer/pcre.git",
+-                "reference": "b2bed4734f0cc156ee1fe9c0da2550420d99a21e"
+-            },
+-            "dist": {
+-                "type": "zip",
+-                "url": "https://api.github.com/repos/composer/pcre/zipball/b2bed4734f0cc156ee1fe9c0da2550420d99a21e",
+-                "reference": "b2bed4734f0cc156ee1fe9c0da2550420d99a21e",
+-                "shasum": ""
+-            },
+-            "require": {
+-                "php": "^7.4 || ^8.0"
+-            },
+-            "conflict": {
+-                "phpstan/phpstan": "<1.11.10"
+-            },
+-            "require-dev": {
+-                "phpstan/phpstan": "^1.12 || ^2",
+-                "phpstan/phpstan-strict-rules": "^1 || ^2",
+-                "phpunit/phpunit": "^8 || ^9"
+-            },
+-            "type": "library",
+-            "extra": {
+-                "phpstan": {
+-                    "includes": [
+-                        "extension.neon"
+-                    ]
+-                },
+-                "branch-alias": {
+-                    "dev-main": "3.x-dev"
+-                }
+-            },
+-            "autoload": {
+-                "psr-4": {
+-                    "Composer\\Pcre\\": "src"
+-                }
+-            },
+-            "notification-url": "https://packagist.org/downloads/",
+-            "license": [
+-                "MIT"
+-            ],
+-            "authors": [
+-                {
+-                    "name": "Jordi Boggiano",
+-                    "email": "j.boggiano@seld.be",
+-                    "homepage": "http://seld.be"
+-                }
+-            ],
+-            "description": "PCRE wrapping library that offers type-safe preg_* replacements.",
+-            "keywords": [
+-                "PCRE",
+-                "preg",
+-                "regex",
+-                "regular expression"
+-            ],
+-            "support": {
+-                "issues": "https://github.com/composer/pcre/issues",
+-                "source": "https://github.com/composer/pcre/tree/3.3.2"
+-            },
+-            "funding": [
+-                {
+-                    "url": "https://packagist.com",
+-                    "type": "custom"
+-                },
+-                {
+-                    "url": "https://github.com/composer",
+-                    "type": "github"
+-                },
+-                {
+-                    "url": "https://tidelift.com/funding/github/packagist/composer/composer",
+-                    "type": "tidelift"
+-                }
+-            ],
+-            "time": "2024-11-12T16:29:46+00:00"
+-        },
+-        {
+-            "name": "composer/semver",
+-            "version": "3.4.4",
+-            "source": {
+-                "type": "git",
+-                "url": "https://github.com/composer/semver.git",
+-                "reference": "198166618906cb2de69b95d7d47e5fa8aa1b2b95"
+-            },
+-            "dist": {
+-                "type": "zip",
+-                "url": "https://api.github.com/repos/composer/semver/zipball/198166618906cb2de69b95d7d47e5fa8aa1b2b95",
+-                "reference": "198166618906cb2de69b95d7d47e5fa8aa1b2b95",
+-                "shasum": ""
+-            },
+-            "require": {
+-                "php": "^5.3.2 || ^7.0 || ^8.0"
+-            },
+-            "require-dev": {
+-                "phpstan/phpstan": "^1.11",
+-                "symfony/phpunit-bridge": "^3 || ^7"
+-            },
+-            "type": "library",
+-            "extra": {
+-                "branch-alias": {
+-                    "dev-main": "3.x-dev"
+-                }
+-            },
+-            "autoload": {
+-                "psr-4": {
+-                    "Composer\\Semver\\": "src"
+-                }
+-            },
+-            "notification-url": "https://packagist.org/downloads/",
+-            "license": [
+-                "MIT"
+-            ],
+-            "authors": [
+-                {
+-                    "name": "Nils Adermann",
+-                    "email": "naderman@naderman.de",
+-                    "homepage": "http://www.naderman.de"
+-                },
+-                {
+-                    "name": "Jordi Boggiano",
+-                    "email": "j.boggiano@seld.be",
+-                    "homepage": "http://seld.be"
+-                },
+-                {
+-                    "name": "Rob Bast",
+-                    "email": "rob.bast@gmail.com",
+-                    "homepage": "http://robbast.nl"
+-                }
+-            ],
+-            "description": "Semver library that offers utilities, version constraint parsing and validation.",
+-            "keywords": [
+-                "semantic",
+-                "semver",
+-                "validation",
+-                "versioning"
+-            ],
+-            "support": {
+-                "irc": "ircs://irc.libera.chat:6697/composer",
+-                "issues": "https://github.com/composer/semver/issues",
+-                "source": "https://github.com/composer/semver/tree/3.4.4"
+-            },
+-            "funding": [
+-                {
+-                    "url": "https://packagist.com",
+-                    "type": "custom"
+-                },
+-                {
+-                    "url": "https://github.com/composer",
+-                    "type": "github"
+-                }
+-            ],
+-            "time": "2025-08-20T19:15:30+00:00"
+-        },
+         {
+             "name": "dflydev/dot-access-data",
+             "version": "v3.0.3",
+@@ -664,67 +508,6 @@
+             ],
+             "time": "2025-03-06T22:45:56+00:00"
+         },
+-        {
+-            "name": "ezyang/htmlpurifier",
+-            "version": "v4.19.0",
+-            "source": {
+-                "type": "git",
+-                "url": "https://github.com/ezyang/htmlpurifier.git",
+-                "reference": "b287d2a16aceffbf6e0295559b39662612b77fcf"
+-            },
+-            "dist": {
+-                "type": "zip",
+-                "url": "https://api.github.com/repos/ezyang/htmlpurifier/zipball/b287d2a16aceffbf6e0295559b39662612b77fcf",
+-                "reference": "b287d2a16aceffbf6e0295559b39662612b77fcf",
+-                "shasum": ""
+-            },
+-            "require": {
+-                "php": "~5.6.0 || ~7.0.0 || ~7.1.0 || ~7.2.0 || ~7.3.0 || ~7.4.0 || ~8.0.0 || ~8.1.0 || ~8.2.0 || ~8.3.0 || ~8.4.0 || ~8.5.0"
+-            },
+-            "require-dev": {
+-                "cerdic/css-tidy": "^1.7 || ^2.0",
+-                "simpletest/simpletest": "dev-master"
+-            },
+-            "suggest": {
+-                "cerdic/css-tidy": "If you want to use the filter 'Filter.ExtractStyleBlocks'.",
+-                "ext-bcmath": "Used for unit conversion and imagecrash protection",
+-                "ext-iconv": "Converts text to and from non-UTF-8 encodings",
+-                "ext-tidy": "Used for pretty-printing HTML"
+-            },
+-            "type": "library",
+-            "autoload": {
+-                "files": [
+-                    "library/HTMLPurifier.composer.php"
+-                ],
+-                "psr-0": {
+-                    "HTMLPurifier": "library/"
+-                },
+-                "exclude-from-classmap": [
+-                    "/library/HTMLPurifier/Language/"
+-                ]
+-            },
+-            "notification-url": "https://packagist.org/downloads/",
+-            "license": [
+-                "LGPL-2.1-or-later"
+-            ],
+-            "authors": [
+-                {
+-                    "name": "Edward Z. Yang",
+-                    "email": "admin@htmlpurifier.org",
+-                    "homepage": "http://ezyang.com"
+-                }
+-            ],
+-            "description": "Standards compliant HTML filter written in PHP",
+-            "homepage": "http://htmlpurifier.org/",
+-            "keywords": [
+-                "html"
+-            ],
+-            "support": {
+-                "issues": "https://github.com/ezyang/htmlpurifier/issues",
+-                "source": "https://github.com/ezyang/htmlpurifier/tree/v4.19.0"
+-            },
+-            "time": "2025-10-17T16:34:55+00:00"
+-        },
+         {
+             "name": "fruitcake/php-cors",
+             "version": "v1.4.0",
+@@ -2237,272 +2020,6 @@
+             ],
+             "time": "2026-03-08T20:05:35+00:00"
+         },
+-        {
+-            "name": "maatwebsite/excel",
+-            "version": "3.1.68",
+-            "source": {
+-                "type": "git",
+-                "url": "https://github.com/SpartnerNL/Laravel-Excel.git",
+-                "reference": "1854739267d81d38eae7d8c623caf523f30f256b"
+-            },
+-            "dist": {
+-                "type": "zip",
+-                "url": "https://api.github.com/repos/SpartnerNL/Laravel-Excel/zipball/1854739267d81d38eae7d8c623caf523f30f256b",
+-                "reference": "1854739267d81d38eae7d8c623caf523f30f256b",
+-                "shasum": ""
+-            },
+-            "require": {
+-                "composer/semver": "^3.3",
+-                "ext-json": "*",
+-                "illuminate/support": "5.8.*||^6.0||^7.0||^8.0||^9.0||^10.0||^11.0||^12.0||^13.0",
+-                "php": "^7.0||^8.0",
+-                "phpoffice/phpspreadsheet": "^1.30.0",
+-                "psr/simple-cache": "^1.0||^2.0||^3.0"
+-            },
+-            "require-dev": {
+-                "laravel/scout": "^7.0||^8.0||^9.0||^10.0||^11.0",
+-                "orchestra/testbench": "^6.0||^7.0||^8.0||^9.0||^10.0||^11.0",
+-                "predis/predis": "^1.1"
+-            },
+-            "type": "library",
+-            "extra": {
+-                "laravel": {
+-                    "aliases": {
+-                        "Excel": "Maatwebsite\\Excel\\Facades\\Excel"
+-                    },
+-                    "providers": [
+-                        "Maatwebsite\\Excel\\ExcelServiceProvider"
+-                    ]
+-                }
+-            },
+-            "autoload": {
+-                "psr-4": {
+-                    "Maatwebsite\\Excel\\": "src/"
+-                }
+-            },
+-            "notification-url": "https://packagist.org/downloads/",
+-            "license": [
+-                "MIT"
+-            ],
+-            "authors": [
+-                {
+-                    "name": "Patrick Brouwers",
+-                    "email": "patrick@spartner.nl"
+-                }
+-            ],
+-            "description": "Supercharged Excel exports and imports in Laravel",
+-            "keywords": [
+-                "PHPExcel",
+-                "batch",
+-                "csv",
+-                "excel",
+-                "export",
+-                "import",
+-                "laravel",
+-                "php",
+-                "phpspreadsheet"
+-            ],
+-            "support": {
+-                "issues": "https://github.com/SpartnerNL/Laravel-Excel/issues",
+-                "source": "https://github.com/SpartnerNL/Laravel-Excel/tree/3.1.68"
+-            },
+-            "funding": [
+-                {
+-                    "url": "https://laravel-excel.com/commercial-support",
+-                    "type": "custom"
+-                },
+-                {
+-                    "url": "https://github.com/patrickbrouwers",
+-                    "type": "github"
+-                }
+-            ],
+-            "time": "2026-03-17T20:51:10+00:00"
+-        },
+-        {
+-            "name": "maennchen/zipstream-php",
+-            "version": "3.1.2",
+-            "source": {
+-                "type": "git",
+-                "url": "https://github.com/maennchen/ZipStream-PHP.git",
+-                "reference": "aeadcf5c412332eb426c0f9b4485f6accba2a99f"
+-            },
+-            "dist": {
+-                "type": "zip",
+-                "url": "https://api.github.com/repos/maennchen/ZipStream-PHP/zipball/aeadcf5c412332eb426c0f9b4485f6accba2a99f",
+-                "reference": "aeadcf5c412332eb426c0f9b4485f6accba2a99f",
+-                "shasum": ""
+-            },
+-            "require": {
+-                "ext-mbstring": "*",
+-                "ext-zlib": "*",
+-                "php-64bit": "^8.2"
+-            },
+-            "require-dev": {
+-                "brianium/paratest": "^7.7",
+-                "ext-zip": "*",
+-                "friendsofphp/php-cs-fixer": "^3.16",
+-                "guzzlehttp/guzzle": "^7.5",
+-                "mikey179/vfsstream": "^1.6",
+-                "php-coveralls/php-coveralls": "^2.5",
+-                "phpunit/phpunit": "^11.0",
+-                "vimeo/psalm": "^6.0"
+-            },
+-            "suggest": {
+-                "guzzlehttp/psr7": "^2.4",
+-                "psr/http-message": "^2.0"
+-            },
+-            "type": "library",
+-            "autoload": {
+-                "psr-4": {
+-                    "ZipStream\\": "src/"
+-                }
+-            },
+-            "notification-url": "https://packagist.org/downloads/",
+-            "license": [
+-                "MIT"
+-            ],
+-            "authors": [
+-                {
+-                    "name": "Paul Duncan",
+-                    "email": "pabs@pablotron.org"
+-                },
+-                {
+-                    "name": "Jonatan Männchen",
+-                    "email": "jonatan@maennchen.ch"
+-                },
+-                {
+-                    "name": "Jesse Donat",
+-                    "email": "donatj@gmail.com"
+-                },
+-                {
+-                    "name": "András Kolesár",
+-                    "email": "kolesar@kolesar.hu"
+-                }
+-            ],
+-            "description": "ZipStream is a library for dynamically streaming dynamic zip files from PHP without writing to the disk at all on the server.",
+-            "keywords": [
+-                "stream",
+-                "zip"
+-            ],
+-            "support": {
+-                "issues": "https://github.com/maennchen/ZipStream-PHP/issues",
+-                "source": "https://github.com/maennchen/ZipStream-PHP/tree/3.1.2"
+-            },
+-            "funding": [
+-                {
+-                    "url": "https://github.com/maennchen",
+-                    "type": "github"
+-                }
+-            ],
+-            "time": "2025-01-27T12:07:53+00:00"
+-        },
+-        {
+-            "name": "markbaker/complex",
+-            "version": "3.0.2",
+-            "source": {
+-                "type": "git",
+-                "url": "https://github.com/MarkBaker/PHPComplex.git",
+-                "reference": "95c56caa1cf5c766ad6d65b6344b807c1e8405b9"
+-            },
+-            "dist": {
+-                "type": "zip",
+-                "url": "https://api.github.com/repos/MarkBaker/PHPComplex/zipball/95c56caa1cf5c766ad6d65b6344b807c1e8405b9",
+-                "reference": "95c56caa1cf5c766ad6d65b6344b807c1e8405b9",
+-                "shasum": ""
+-            },
+-            "require": {
+-                "php": "^7.2 || ^8.0"
+-            },
+-            "require-dev": {
+-                "dealerdirect/phpcodesniffer-composer-installer": "dev-master",
+-                "phpcompatibility/php-compatibility": "^9.3",
+-                "phpunit/phpunit": "^7.0 || ^8.0 || ^9.0",
+-                "squizlabs/php_codesniffer": "^3.7"
+-            },
+-            "type": "library",
+-            "autoload": {
+-                "psr-4": {
+-                    "Complex\\": "classes/src/"
+-                }
+-            },
+-            "notification-url": "https://packagist.org/downloads/",
+-            "license": [
+-                "MIT"
+-            ],
+-            "authors": [
+-                {
+-                    "name": "Mark Baker",
+-                    "email": "mark@lange.demon.co.uk"
+-                }
+-            ],
+-            "description": "PHP Class for working with complex numbers",
+-            "homepage": "https://github.com/MarkBaker/PHPComplex",
+-            "keywords": [
+-                "complex",
+-                "mathematics"
+-            ],
+-            "support": {
+-                "issues": "https://github.com/MarkBaker/PHPComplex/issues",
+-                "source": "https://github.com/MarkBaker/PHPComplex/tree/3.0.2"
+-            },
+-            "time": "2022-12-06T16:21:08+00:00"
+-        },
+-        {
+-            "name": "markbaker/matrix",
+-            "version": "3.0.1",
+-            "source": {
+-                "type": "git",
+-                "url": "https://github.com/MarkBaker/PHPMatrix.git",
+-                "reference": "728434227fe21be27ff6d86621a1b13107a2562c"
+-            },
+-            "dist": {
+-                "type": "zip",
+-                "url": "https://api.github.com/repos/MarkBaker/PHPMatrix/zipball/728434227fe21be27ff6d86621a1b13107a2562c",
+-                "reference": "728434227fe21be27ff6d86621a1b13107a2562c",
+-                "shasum": ""
+-            },
+-            "require": {
+-                "php": "^7.1 || ^8.0"
+-            },
+-            "require-dev": {
+-                "dealerdirect/phpcodesniffer-composer-installer": "dev-master",
+-                "phpcompatibility/php-compatibility": "^9.3",
+-                "phpdocumentor/phpdocumentor": "2.*",
+-                "phploc/phploc": "^4.0",
+-                "phpmd/phpmd": "2.*",
+-                "phpunit/phpunit": "^7.0 || ^8.0 || ^9.0",
+-                "sebastian/phpcpd": "^4.0",
+-                "squizlabs/php_codesniffer": "^3.7"
+-            },
+-            "type": "library",
+-            "autoload": {
+-                "psr-4": {
+-                    "Matrix\\": "classes/src/"
+-                }
+-            },
+-            "notification-url": "https://packagist.org/downloads/",
+-            "license": [
+-                "MIT"
+-            ],
+-            "authors": [
+-                {
+-                    "name": "Mark Baker",
+-                    "email": "mark@demon-angel.eu"
+-                }
+-            ],
+-            "description": "PHP Class for working with matrices",
+-            "homepage": "https://github.com/MarkBaker/PHPMatrix",
+-            "keywords": [
+-                "mathematics",
+-                "matrix",
+-                "vector"
+-            ],
+-            "support": {
+-                "issues": "https://github.com/MarkBaker/PHPMatrix/issues",
+-                "source": "https://github.com/MarkBaker/PHPMatrix/tree/3.0.1"
+-            },
+-            "time": "2022-12-02T22:17:43+00:00"
+-        },
+         {
+             "name": "monolog/monolog",
+             "version": "3.10.0",
+@@ -3014,114 +2531,6 @@
+             ],
+             "time": "2026-02-16T23:10:27+00:00"
+         },
+-        {
+-            "name": "phpoffice/phpspreadsheet",
+-            "version": "1.30.2",
+-            "source": {
+-                "type": "git",
+-                "url": "https://github.com/PHPOffice/PhpSpreadsheet.git",
+-                "reference": "09cdde5e2f078b9a3358dd217e2c8cb4dac84be2"
+-            },
+-            "dist": {
+-                "type": "zip",
+-                "url": "https://api.github.com/repos/PHPOffice/PhpSpreadsheet/zipball/09cdde5e2f078b9a3358dd217e2c8cb4dac84be2",
+-                "reference": "09cdde5e2f078b9a3358dd217e2c8cb4dac84be2",
+-                "shasum": ""
+-            },
+-            "require": {
+-                "composer/pcre": "^1||^2||^3",
+-                "ext-ctype": "*",
+-                "ext-dom": "*",
+-                "ext-fileinfo": "*",
+-                "ext-gd": "*",
+-                "ext-iconv": "*",
+-                "ext-libxml": "*",
+-                "ext-mbstring": "*",
+-                "ext-simplexml": "*",
+-                "ext-xml": "*",
+-                "ext-xmlreader": "*",
+-                "ext-xmlwriter": "*",
+-                "ext-zip": "*",
+-                "ext-zlib": "*",
+-                "ezyang/htmlpurifier": "^4.15",
+-                "maennchen/zipstream-php": "^2.1 || ^3.0",
+-                "markbaker/complex": "^3.0",
+-                "markbaker/matrix": "^3.0",
+-                "php": ">=7.4.0 <8.5.0",
+-                "psr/simple-cache": "^1.0 || ^2.0 || ^3.0"
+-            },
+-            "require-dev": {
+-                "dealerdirect/phpcodesniffer-composer-installer": "dev-main",
+-                "doctrine/instantiator": "^1.5",
+-                "dompdf/dompdf": "^1.0 || ^2.0 || ^3.0",
+-                "friendsofphp/php-cs-fixer": "^3.2",
+-                "mitoteam/jpgraph": "^10.3",
+-                "mpdf/mpdf": "^8.1.1",
+-                "phpcompatibility/php-compatibility": "^9.3",
+-                "phpstan/phpstan": "^1.1",
+-                "phpstan/phpstan-phpunit": "^1.0",
+-                "phpunit/phpunit": "^8.5 || ^9.0",
+-                "squizlabs/php_codesniffer": "^3.7",
+-                "tecnickcom/tcpdf": "^6.5"
+-            },
+-            "suggest": {
+-                "dompdf/dompdf": "Option for rendering PDF with PDF Writer",
+-                "ext-intl": "PHP Internationalization Functions",
+-                "mitoteam/jpgraph": "Option for rendering charts, or including charts with PDF or HTML Writers",
+-                "mpdf/mpdf": "Option for rendering PDF with PDF Writer",
+-                "tecnickcom/tcpdf": "Option for rendering PDF with PDF Writer"
+-            },
+-            "type": "library",
+-            "autoload": {
+-                "psr-4": {
+-                    "PhpOffice\\PhpSpreadsheet\\": "src/PhpSpreadsheet"
+-                }
+-            },
+-            "notification-url": "https://packagist.org/downloads/",
+-            "license": [
+-                "MIT"
+-            ],
+-            "authors": [
+-                {
+-                    "name": "Maarten Balliauw",
+-                    "homepage": "https://blog.maartenballiauw.be"
+-                },
+-                {
+-                    "name": "Mark Baker",
+-                    "homepage": "https://markbakeruk.net"
+-                },
+-                {
+-                    "name": "Franck Lefevre",
+-                    "homepage": "https://rootslabs.net"
+-                },
+-                {
+-                    "name": "Erik Tilt"
+-                },
+-                {
+-                    "name": "Adrien Crivelli"
+-                },
+-                {
+-                    "name": "Owen Leibman"
+-                }
+-            ],
+-            "description": "PHPSpreadsheet - Read, Create and Write Spreadsheet documents in PHP - Spreadsheet engine",
+-            "homepage": "https://github.com/PHPOffice/PhpSpreadsheet",
+-            "keywords": [
+-                "OpenXML",
+-                "excel",
+-                "gnumeric",
+-                "ods",
+-                "php",
+-                "spreadsheet",
+-                "xls",
+-                "xlsx"
+-            ],
+-            "support": {
+-                "issues": "https://github.com/PHPOffice/PhpSpreadsheet/issues",
+-                "source": "https://github.com/PHPOffice/PhpSpreadsheet/tree/1.30.2"
+-            },
+-            "time": "2026-01-11T05:58:24+00:00"
+-        },
+         {
+             "name": "phpoption/phpoption",
+             "version": "1.9.5",
+diff --git a/resources/views/admin/users/index.blade.php b/resources/views/admin/users/index.blade.php
+deleted file mode 100644
+index f5339b7..0000000
+--- a/resources/views/admin/users/index.blade.php
++++ /dev/null
+@@ -1,69 +0,0 @@
+-@extends('layouts.mobile')
+-
+-@section('content')
+-<div class="pt-8 px-6 pb-6 bg-white shadow-sm sticky top-0 z-30 flex items-center justify-between">
+-    <div class="flex items-center gap-3">
+-        <a href="{{ route('dashboard') }}" class="h-8 w-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-600">
+-            <i class="fa-solid fa-arrow-left"></i>
+-        </a>
+-        <h1 class="text-xl font-bold text-gray-800">Manajemen Petugas</h1>
+-    </div>
+-</div>
+-
+-<div class="p-5 space-y-4">
+-    @if(session('success'))
+-        <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-2xl text-sm mb-4 flex items-center">
+-            <i class="fa-solid fa-circle-check mr-2"></i> {{ session('success') }}
+-        </div>
+-    @endif
+-
+-    <!-- Form Tambah Petugas -->
+-    <div class="bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 mb-6">
+-        <h3 class="text-sm font-bold text-gray-800 mb-4"><i class="fa-solid fa-user-plus mr-2 text-indigo-500"></i>Tambah Petugas Baru</h3>
+-        
+-        <form action="{{ route('admin.users.store') }}" method="POST" class="space-y-3">
+-            @csrf
+-            <div>
+-                <input type="text" name="name" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none transition-colors" placeholder="Nama Lengkap" required>
+-            </div>
+-            <div>
+-                <input type="email" name="email" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none transition-colors" placeholder="Email Akses" required>
+-            </div>
+-            <div>
+-                <input type="password" name="password" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none transition-colors" placeholder="Password Sistem" required>
+-            </div>
+-            <button type="submit" class="w-full bg-indigo-600 text-white font-bold rounded-xl py-3 text-sm hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+-                Buat Akun Petugas
+-            </button>
+-        </form>
+-    </div>
+-
+-    <!-- List Petugas -->
+-    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1 mb-2">Daftar Petugas Lapangan</h3>
+-    
+-    @forelse($users as $user)
+-    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+-        <div class="flex items-center gap-3">
+-            <div class="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold">
+-                {{ substr($user->name, 0, 1) }}
+-            </div>
+-            <div>
+-                <p class="font-bold text-gray-800 text-sm">{{ $user->name }}</p>
+-                <p class="text-[10px] text-gray-400">{{ $user->email }}</p>
+-            </div>
+-        </div>
+-        <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" onsubmit="return confirm('Hapus petugas ini?')">
+-            @csrf
+-            @method('DELETE')
+-            <button type="submit" class="h-8 w-8 bg-red-50 text-red-500 flex items-center justify-center rounded-lg hover:bg-red-100">
+-                <i class="fa-solid fa-trash-can text-xs"></i>
+-            </button>
+-        </form>
+-    </div>
+-    @empty
+-    <div class="text-center text-gray-400 py-6 text-sm">
+-        <p>Belum ada petugas yang terdaftar.</p>
+-    </div>
+-    @endforelse
+-</div>
+-@endsection
+diff --git a/resources/views/dashboard/admin.blade.php b/resources/views/dashboard/admin.blade.php
+deleted file mode 100644
+index 5c93496..0000000
+--- a/resources/views/dashboard/admin.blade.php
++++ /dev/null
+@@ -1,66 +0,0 @@
+-@extends('layouts.mobile')
+-
+-@section('content')
+-<!-- Header with gradient and shape -->
+-<div class="pt-8 px-6 pb-24 bg-gradient-to-br from-primary to-emerald-700 text-white rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
+-    <!-- Decorative circles -->
+-    <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10"></div>
+-    <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white opacity-10"></div>
+-    
+-    <div class="flex justify-between items-center relative z-10">
+-        <div>
+-            <p class="text-emerald-100 text-xs font-medium uppercase tracking-wider mb-1">Overview Sistem</p>
+-            <h1 class="text-2xl font-bold flex items-center">
+-                <i class="fa-solid fa-shield-halved mr-2 text-sm"></i> Admin Panel
+-            </h1>
+-        </div>
+-        <div class="h-12 w-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-sm border border-white/10">
+-            <i class="fa-solid fa-crown text-white text-lg"></i>
+-        </div>
+-    </div>
+-    <div class="mt-6 relative z-10">
+-        <p class="text-sm text-emerald-100 mb-1 opacity-90">Total Petugas Aktif</p>
+-        <div class="flex items-center gap-2">
+-            <h2 class="text-3xl font-extrabold tracking-tight">{{ $totalPetugas }} <span class="text-lg font-normal">orang</span></h2>
+-        </div>
+-    </div>
+-</div>
+-
+-<div class="px-5 -mt-16 mx-auto relative z-20 space-y-4 pb-8">
+-    <!-- Quick Actions Grid -->
+-    <div class="grid grid-cols-2 gap-3 mb-6">
+-        <a href="{{ route('admin.users.index') }}" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 active:scale-95 transition-transform text-center hover:bg-indigo-50">
+-            <div class="h-12 w-12 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
+-                <i class="fa-solid fa-users-gear text-xl"></i>
+-            </div>
+-            <div>
+-                <p class="font-bold text-gray-800 text-sm">Manajemen Petugas</p>
+-                <p class="text-[9px] text-gray-400 mt-1">Tambah/hapus akun</p>
+-            </div>
+-        </a>
+-        <a href="{{ route('statistics') }}" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 active:scale-95 transition-transform text-center hover:bg-emerald-50">
+-            <div class="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
+-                <i class="fa-solid fa-chart-pie text-xl"></i>
+-            </div>
+-            <div>
+-                <p class="font-bold text-gray-800 text-sm">Laporan Analitik</p>
+-                <p class="text-[9px] text-gray-400 mt-1">Lihat grafik performa</p>
+-            </div>
+-        </a>
+-    </div>
+-
+-    <!-- Sistem Info Box -->
+-    <div class="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100">
+-        <div class="flex justify-between items-center mb-4">
+-            <h3 class="font-bold text-gray-800 text-sm"><i class="fa-solid fa-server text-indigo-500 mr-2"></i>Status Perangkat</h3>
+-            <span class="px-2 py-1 bg-green-50 text-green-600 text-[9px] uppercase font-bold rounded-md">Online</span>
+-        </div>
+-        <p class="text-xs text-gray-500 leading-relaxed mb-4">Sistem berjalan normal. Tempat sampah pintar Area Kampus A dan B aktif mengirim data.</p>
+-        
+-        <div class="w-full bg-gray-50 rounded-xl p-3 flex justify-between items-center border border-gray-100">
+-            <span class="text-xs font-bold text-gray-600">Terakhir Update Server</span>
+-            <span class="text-xs text-indigo-600 font-mono">{{ now()->format('H:i:s') }}</span>
+-        </div>
+-    </div>
+-</div>
+-@endsection
+diff --git a/resources/views/dashboard/petugas.blade.php b/resources/views/dashboard/petugas.blade.php
+deleted file mode 100644
+index fd39980..0000000
+--- a/resources/views/dashboard/petugas.blade.php
++++ /dev/null
+@@ -1,127 +0,0 @@
+-@extends('layouts.mobile')
+-
+-@section('content')
+-<!-- Header with gradient and shape -->
+-<div class="pt-8 px-6 pb-24 bg-gradient-to-br from-primary to-emerald-700 text-white rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
+-    <!-- Decorative circles -->
+-    <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10"></div>
+-    <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white opacity-10"></div>
+-    
+-    <div class="flex justify-between items-center relative z-10">
+-        <div>
+-            <p class="text-emerald-100 text-xs font-medium uppercase tracking-wider mb-1">Monitoring Area</p>
+-            <h1 class="text-2xl font-bold flex items-center">
+-                <i class="fa-solid fa-location-dot mr-2 text-sm"></i> Area Kampus A
+-            </h1>
+-        </div>
+-        <div class="h-12 w-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-sm border border-white/10">
+-            <i class="fa-solid fa-trash-can text-white text-lg animate-pulse"></i>
+-        </div>
+-    </div>
+-    <div class="mt-6 relative z-10">
+-        <p class="text-sm text-emerald-100 mb-1 opacity-90">Status Sistem Keseluruhan</p>
+-        <div class="flex items-center gap-2">
+-            <div class="h-2.5 w-2.5 rounded-full bg-green-300 animate-ping"></div>
+-            <h2 class="text-3xl font-extrabold tracking-tight">Normal</h2>
+-        </div>
+-    </div>
+-</div>
+-
+-<div class="px-5 -mt-16 mx-auto relative z-20 space-y-4">
+-    @if(session('success'))
+-        <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-2xl text-xs flex items-center shadow-sm">
+-            <i class="fa-solid fa-circle-check mr-2"></i> {{ session('success') }}
+-        </div>
+-    @endif
+-    <!-- Card Organik -->
+-    <div class="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 transition-transform hover:scale-[1.02]">
+-        <div class="flex justify-between items-center mb-5">
+-            <div class="flex items-center gap-4">
+-                <div class="h-12 w-12 bg-green-50 text-primary rounded-2xl flex items-center justify-center shadow-inner">
+-                    <i class="fa-solid fa-leaf text-xl"></i>
+-                </div>
+-                <div>
+-                    <h3 class="font-bold text-gray-800 text-base">Organik</h3>
+-                    <p class="text-[10px] text-gray-400 font-medium"><i class="fa-regular fa-clock mr-1"></i>Update 2 min lalu</p>
+-                </div>
+-            </div>
+-            <span class="px-3 py-1.5 bg-green-50 text-primary text-[10px] uppercase font-bold rounded-full border border-green-100 placeholder-opacity-50 tracking-wider">Tersedia</span>
+-        </div>
+-        
+-        <div class="mt-2">
+-            <div class="flex justify-between text-sm mb-2 items-end">
+-                <span class="text-gray-500 font-medium text-xs">Tingkat Kapasitas</span>
+-                <span class="font-extrabold text-gray-800 text-lg">45%</span>
+-            </div>
+-            <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+-                <div class="bg-gradient-to-r from-green-400 to-primary h-3 rounded-full" style="width: 45%"></div>
+-            </div>
+-            <p class="text-[10px] text-gray-400 mt-2 text-right">Perkiraan penuh dlm 2 hari</p>
+-        </div>
+-        <form action="{{ route('petugas.empty', 'organik') }}" method="POST" class="mt-4 border-t border-gray-100 pt-3" onsubmit="return confirm('Tandai sampah Organik telah dikosongkan?')">
+-            @csrf
+-            <button type="submit" class="w-full bg-green-50 text-green-600 hover:bg-green-100 font-bold py-2 rounded-xl text-xs transition-colors flex items-center justify-center">
+-                <i class="fa-solid fa-check mr-1"></i> Tandai Telah Dikosongkan
+-            </button>
+-        </form>
+-    </div>
+-
+-    <!-- Card Non-Organik -->
+-    <div class="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 transition-transform hover:scale-[1.02]">
+-        <div class="flex justify-between items-center mb-5">
+-            <div class="flex items-center gap-4">
+-                <div class="h-12 w-12 bg-blue-50 text-secondary rounded-2xl flex items-center justify-center shadow-inner">
+-                    <i class="fa-solid fa-bottle-water text-xl"></i>
+-                </div>
+-                <div>
+-                    <h3 class="font-bold text-gray-800 text-base">Non-Organik</h3>
+-                    <p class="text-[10px] text-gray-400 font-medium"><i class="fa-regular fa-clock mr-1"></i>Update 2 min lalu</p>
+-                </div>
+-            </div>
+-            <span class="px-3 py-1.5 bg-yellow-50 text-yellow-600 text-[10px] uppercase font-bold rounded-full border border-yellow-100 tracking-wider animate-pulse">Hampir Penuh</span>
+-        </div>
+-        
+-        <div class="mt-2">
+-            <div class="flex justify-between text-sm mb-2 items-end">
+-                <span class="text-gray-500 font-medium text-xs">Tingkat Kapasitas</span>
+-                <span class="font-extrabold text-gray-800 text-lg">85%</span>
+-            </div>
+-            <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+-                <div class="bg-gradient-to-r from-blue-400 to-secondary h-3 rounded-full" style="width: 85%"></div>
+-            </div>
+-            <p class="text-[10px] text-gray-400 mt-2 text-right">Perlu segera dikosongkan</p>
+-        </div>
+-        <form action="{{ route('petugas.empty', 'non_organik') }}" method="POST" class="mt-4 border-t border-gray-100 pt-3" onsubmit="return confirm('Tandai sampah Non-Organik telah dikosongkan?')">
+-            @csrf
+-            <button type="submit" class="w-full bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold py-2 rounded-xl text-xs transition-colors flex items-center justify-center">
+-                <i class="fa-solid fa-check mr-1"></i> Tandai Telah Dikosongkan
+-            </button>
+-        </form>
+-    </div>
+-    
+-    <!-- Title Mini -->
+-    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mt-4 ml-1 mb-1">Status Sensor</h3>
+-
+-    <!-- Quick Stats Grid -->
+-    <div class="grid grid-cols-2 gap-3 pb-6">
+-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+-            <div class="h-10 w-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center">
+-                <i class="fa-solid fa-temperature-half text-lg"></i>
+-            </div>
+-            <div>
+-                <p class="text-[9px] text-gray-400 uppercase tracking-widest font-bold">Suhu Dalam</p>
+-                <p class="font-bold text-gray-800 text-sm">32°C</p>
+-            </div>
+-        </div>
+-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+-            <div class="h-10 w-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center">
+-                <i class="fa-solid fa-battery-three-quarters text-lg"></i>
+-            </div>
+-            <div>
+-                <p class="text-[9px] text-gray-400 uppercase tracking-widest font-bold">Baterai Alat</p>
+-                <p class="font-bold text-gray-800 text-sm">78%</p>
+-            </div>
+-        </div>
+-    </div>
+-</div>
+-@endsection
+diff --git a/resources/views/history/index.blade.php b/resources/views/history/index.blade.php
+index c796e98..a758c61 100644
+--- a/resources/views/history/index.blade.php
++++ b/resources/views/history/index.blade.php
+@@ -4,25 +4,6 @@
+ <div class="pt-8 px-6 pb-6 bg-white shadow-sm sticky top-0 z-30">
+     <div class="flex items-center justify-between">
+         <h1 class="text-xl font-bold text-gray-800">Riwayat TPA</h1>
+-        <div class="flex gap-2">
+-            <!-- Export Button -->
+-            <a href="{{ route('history.export') }}" class="h-8 px-3 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold shadow-sm hover:bg-indigo-100 transition-colors">
+-                <i class="fa-solid fa-file-export mr-1"></i> Export
+-            </a>
+-            <!-- Filter / Toggle Import Button -->
+-            <div class="h-8 w-8 rounded-xl bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors" onclick="document.getElementById('import-form-container').classList.toggle('hidden')">
+-                <i class="fa-solid fa-file-import text-gray-500 text-sm"></i>
+-            </div>
+-        </div>
+-    </div>
+-    
+-    <!-- Import Form (Hidden by default) -->
+-    <div id="import-form-container" class="mt-4 hidden animate-fade-in-down">
+-        <form action="{{ route('history.import') }}" method="POST" enctype="multipart/form-data" class="flex gap-2 items-center bg-gray-50 p-2 rounded-xl border border-gray-100">
+-            @csrf
+-            <input type="file" name="file" accept=".xlsx,.xls,.csv" class="text-[10px] w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" required>
+-            <button type="submit" class="bg-indigo-600 px-3 py-1.5 rounded-lg text-white text-xs font-bold shadow-sm hover:bg-indigo-700"><i class="fa-solid fa-upload"></i></button>
+-        </form>
+     </div>
+     
+     @if(session('success'))
+diff --git a/routes/web.php b/routes/web.php
+index c10bf99..b645dff 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -20,16 +20,9 @@
+     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+     Route::get('/statistics', [StatisticsController::class, 'index'])->name('statistics');
+     Route::get('/history', [HistoryController::class, 'index'])->name('history');
+-    Route::get('/history/export', [HistoryController::class, 'export'])->name('history.export');
+-    Route::post('/history/import', [HistoryController::class, 'import'])->name('history.import');
+     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
+     Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'index'])->name('profile');
+ 
+-    // Admin Routes
+-    Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
+-        Route::resource('users', \App\Http\Controllers\Admin\UserController::class)->except(['create', 'show', 'edit', 'update']);
+-    });
+-
+-    // Petugas Routes
+-    Route::middleware('role:petugas')->post('/empty-trash/{type}', [DashboardController::class, 'emptyTrash'])->name('petugas.empty');
++    // Action Routes
++    Route::post('/empty-trash/{type}', [DashboardController::class, 'emptyTrash'])->name('trash.empty');
+ });
