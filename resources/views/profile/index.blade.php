@@ -5,7 +5,14 @@
     <!-- Decorative circles -->
     <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10"></div>
     
-    <div class="flex items-center gap-4 relative z-10 mt-2">
+    <div class="flex items-center gap-3 relative z-10 mb-6 mt-2">
+        <a href="{{ route('dashboard') }}" class="h-10 w-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform text-white">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <h1 class="text-xl font-bold">Profil</h1>
+    </div>
+
+    <div class="flex items-center gap-4 relative z-10">
         <div class="h-16 w-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md shadow-sm border border-white/20">
             <i class="fa-solid fa-user text-white text-3xl"></i>
         </div>

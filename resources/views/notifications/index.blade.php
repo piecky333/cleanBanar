@@ -3,7 +3,12 @@
 @section('content')
 <div class="pt-8 px-6 pb-4 bg-white shadow-sm sticky top-0 z-30">
     <div class="flex items-center justify-between mb-2">
-        <h1 class="text-xl font-bold text-gray-800">Notifikasi</h1>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('dashboard') }}" class="h-8 w-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold text-gray-800">Notifikasi</h1>
+        </div>
         <div class="text-[11px] font-bold text-primary px-3 py-1 bg-green-50 rounded-full cursor-pointer">Tandai Dibaca</div>
     </div>
 </div>

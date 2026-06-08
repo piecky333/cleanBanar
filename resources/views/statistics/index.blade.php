@@ -3,7 +3,12 @@
 @section('content')
 <div class="pt-8 px-6 pb-6 bg-white shadow-sm sticky top-0 z-30">
     <div class="flex items-center justify-between">
-        <h1 class="text-xl font-bold text-gray-800">Statistik</h1>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('dashboard') }}" class="h-8 w-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold text-gray-800">Statistik</h1>
+        </div>
         <div class="bg-gray-100 rounded-lg p-1 flex mt-1">
             <button class="px-3 py-1 text-xs font-bold rounded-md bg-white shadow-sm text-gray-800">Ringkasan</button>
         </div>

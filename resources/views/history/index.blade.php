@@ -2,7 +2,10 @@
 
 @section('content')
 <div class="pt-8 px-6 pb-6 bg-white shadow-sm sticky top-0 z-30">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <a href="{{ route('dashboard') }}" class="h-8 w-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
         <h1 class="text-xl font-bold text-gray-800">Riwayat TPA</h1>
     </div>
     
